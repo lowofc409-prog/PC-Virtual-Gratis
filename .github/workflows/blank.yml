@@ -1,0 +1,361 @@
+@echo off
+setlocal EnableExtensions
+title Minecraft PC Virtual - Windows 11
+color 0A
+
+:: ============================================================
+:: MINECRAFT PC VIRTUAL
+:: Windows 11 + QEMU + Minecraft Java
+:: ============================================================
+
+:: ---------------- CONFIGURAÇÃO ----------------
+
+set "VM_NAME=Minecraft-PC"
+set "RAM=8G"
+set "CPU=4"
+set "DISK_SIZE=80G"
+
+set "ROOT=%~dp0"
+set "VM_DIR=%ROOT%vm"
+set "ISO_DIR=%ROOT%iso"
+set "DISK=%VM_DIR%\windows11.qcow2"
+set "ISO=%ISO_DIR%\windows11.iso"
+
+echo.
+echo ============================================================
+echo             MINECRAFT PC VIRTUAL
+echo ============================================================
+echo.
+echo Nome da VM : %VM_NAME%
+echo RAM        : %RAM%
+echo CPU        : %CPU%
+echo Disco      : %DISK_SIZE%
+echo.
+
+:: ---------------- CRIAR PASTAS ----------------
+
+if not exist "%VM_DIR%" mkdir "%VM_DIR%"
+if not exist "%ISO_DIR%" mkdir "%ISO_DIR%"
+
+:: ---------------- VERIFICAR QEMU ----------------
+
+echo [1/5] Verificando QEMU...
+
+where qemu-system-x86_64 >nul 2>&1
+
+if errorlevel 1 (
+    echo.
+    echo ERRO: QEMU nao foi encontrado.
+    echo.
+    echo Instale o QEMU para Windows e adicione
+    echo a pasta do QEMU ao PATH do Windows.
+    echo.
+    pause
+    exit /b 1
+)
+
+echo QEMU encontrado!
+echo.
+
+:: ---------------- VERIFICAR QEMU-IMG ----------------
+
+where qemu-img >nul 2>&1
+
+if errorlevel 1 (
+    echo ERRO: qemu-img nao foi encontrado.
+    pause
+    exit /b 1
+)
+
+:: ---------------- MENU ----------------
+
+:MENU
+
+cls
+
+echo ============================================================
+echo                 MINECRAFT PC VIRTUAL
+echo ============================================================
+echo.
+echo  [1] Criar disco virtual
+echo  [2] Instalar Windows 11
+echo  [3] Iniciar VM
+echo  [4] Abrir pagina do Minecraft
+echo  [5] Encerrar VM
+echo  [6] Mostrar configuracao
+echo  [7] Sair
+echo.
+set /p "OPCAO=Escolha uma opcao: "
+
+if "%OPCAO%"=="1" goto CREATE_DISK
+if "%OPCAO%"=="2" goto INSTALL_WINDOWS
+if "%OPCAO%"=="3" goto START_VM
+if "%OPCAO%"=="4" goto MINECRAFT
+if "%OPCAO%"=="5" goto STOP_VM
+if "%OPCAO%"=="6" goto CONFIG
+if "%OPCAO%"=="7" goto END
+
+echo.
+echo Opcao invalida.
+timeout /t 2 >nul
+goto MENU
+
+
+:: ============================================================
+:: CRIAR DISCO
+:: ============================================================
+
+:CREATE_DISK
+
+cls
+
+echo ============================================================
+echo                  CRIANDO DISCO VIRTUAL
+echo ============================================================
+echo.
+
+if exist "%DISK%" (
+    echo O disco ja existe:
+    echo %DISK%
+    echo.
+    pause
+    goto MENU
+)
+
+echo Criando disco QCOW2 de %DISK_SIZE%...
+
+qemu-img create -f qcow2 "%DISK%" %DISK_SIZE%
+
+if errorlevel 1 (
+    echo.
+    echo Falha ao criar o disco.
+    pause
+    goto MENU
+)
+
+echo.
+echo Disco criado com sucesso!
+echo.
+pause
+goto MENU
+
+
+:: ============================================================
+:: INSTALAR WINDOWS
+:: ============================================================
+
+:INSTALL_WINDOWS
+
+cls
+
+echo ============================================================
+echo                  INSTALAR WINDOWS 11
+echo ============================================================
+echo.
+
+if not exist "%ISO%" (
+    echo A ISO do Windows 11 nao foi encontrada.
+    echo.
+    echo Coloque sua ISO legalmente obtida em:
+    echo.
+    echo %ISO%
+    echo.
+    echo O nome deve ser:
+    echo windows11.iso
+    echo.
+    pause
+    goto MENU
+)
+
+if not exist "%DISK%" (
+    echo Criando disco virtual...
+    qemu-img create -f qcow2 "%DISK%" %DISK_SIZE%
+)
+
+echo.
+echo Iniciando instalacao do Windows 11...
+echo.
+echo Depois siga o instalador normalmente.
+echo.
+
+qemu-system-x86_64 ^
+    -name "%VM_NAME%" ^
+    -machine q35 ^
+    -accel whpx ^
+    -cpu max ^
+    -smp %CPU% ^
+    -m %RAM% ^
+    -drive file="%DISK%",if=virtio,format=qcow2 ^
+    -cdrom "%ISO%" ^
+    -boot order=d ^
+    -nic user,model=virtio-net-pci ^
+    -vga virtio ^
+    -display sdl
+
+echo.
+echo Instalacao encerrada.
+pause
+goto MENU
+
+
+:: ============================================================
+:: INICIAR VM
+:: ============================================================
+
+:START_VM
+
+cls
+
+echo ============================================================
+echo                    INICIANDO VM
+echo ============================================================
+echo.
+
+if not exist "%DISK%" (
+    echo Disco virtual nao encontrado.
+    echo Crie o disco primeiro.
+    echo.
+    pause
+    goto MENU
+)
+
+echo Iniciando %VM_NAME%...
+echo.
+echo RAM: %RAM%
+echo CPU: %CPU%
+echo.
+
+qemu-system-x86_64 ^
+    -name "%VM_NAME%" ^
+    -machine q35 ^
+    -accel whpx ^
+    -cpu max ^
+    -smp %CPU% ^
+    -m %RAM% ^
+    -drive file="%DISK%",if=virtio,format=qcow2 ^
+    -nic user,model=virtio-net-pci ^
+    -vga virtio ^
+    -display sdl
+
+echo.
+echo VM encerrada.
+pause
+goto MENU
+
+
+:: ============================================================
+:: MINECRAFT
+:: ============================================================
+
+:MINECRAFT
+
+cls
+
+echo ============================================================
+echo                 MINECRAFT JAVA EDITION
+echo ============================================================
+echo.
+echo Abrindo pagina oficial do Minecraft...
+echo.
+
+start "" "https://www.minecraft.net/download"
+
+echo.
+echo Dentro do Windows virtual:
+echo.
+echo 1. Baixe o Minecraft Launcher.
+echo 2. Entre na sua conta.
+echo 3. Instale o Minecraft Java Edition.
+echo.
+pause
+goto MENU
+
+
+:: ============================================================
+:: ENCERRAR VM
+:: ============================================================
+
+:STOP_VM
+
+cls
+
+echo ============================================================
+echo                    ENCERRAR VM
+echo ============================================================
+echo.
+
+taskkill /IM qemu-system-x86_64.exe /T >nul 2>&1
+
+if errorlevel 1 (
+    echo Nenhuma VM QEMU encontrada.
+) else (
+    echo VM encerrada.
+)
+
+echo.
+pause
+goto MENU
+
+
+:: ============================================================
+:: CONFIGURAÇÃO
+:: ============================================================
+
+:CONFIG
+
+cls
+
+echo ============================================================
+echo                    CONFIGURACAO
+echo ============================================================
+echo.
+echo Nome da VM:
+echo %VM_NAME%
+echo.
+echo RAM:
+echo %RAM%
+echo.
+echo CPU:
+echo %CPU% nucleos
+echo.
+echo Disco:
+echo %DISK_SIZE%
+echo.
+echo Arquivo:
+echo %DISK%
+echo.
+echo ISO:
+echo %ISO%
+echo.
+echo Rede:
+echo Ativada
+echo.
+echo Formato do disco:
+echo QCOW2
+echo.
+pause
+goto MENU
+
+
+:: ============================================================
+:: FINALIZAR
+:: ============================================================
+
+:END
+
+cls
+
+echo.
+echo ============================================================
+echo              MINECRAFT PC VIRTUAL
+echo ============================================================
+echo.
+echo Obrigado por usar o projeto!
+echo.
+echo Lembre-se:
+echo - Nao envie ISOs para o GitHub.
+echo - Nao envie seu disco .qcow2.
+echo - Nao coloque senhas ou tokens no projeto.
+echo.
+pause
+exit /b 0
